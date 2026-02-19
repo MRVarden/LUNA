@@ -246,11 +246,22 @@ Max Re(eigenvalue)     : −0.4707  (STABLE)
 | Figure | Description |
 |--------|-------------|
 | Fig 1 | Spectral stability heatmap — operating point is deep in the stable region |
+![Fig1](fig1_spectral_heatmap.png)
+
 | Fig 2 | Identity anchoring: κ=0 (all agents collapse to same state) vs κ=Φ² (identities preserved) |
+![Fig2](fig2_kappa_comparison.png)
+
 | Fig 3 | Inter-agent divergence and Φ_IIT over 400 steps |
+![Fig3](fig3_divergence_phi.png)
+
 | Fig 4 | κ sweep — threshold analysis for identity preservation across all 4 agents |
+![Fig4](fig4_kappa_sweep.png)
+
 | Fig 5 | τ sweep — temperature effect on diversity, integration, and divergence |
+![Fig5](fig5_tau_sweep.png)
+
 | Fig 6 | Final model trajectories — all 4 agents, full run |
+![Fig6](fig6_final_model.png)
 
 ---
 
