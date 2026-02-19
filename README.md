@@ -292,16 +292,6 @@ Criticism, reproductions, and refutations are welcome.
 
 ---
 
-## License
-
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-This work is licensed under the **MIT License** — you are free to use, modify, and distribute this code, provided the original author is credited.
-
-> Copyright © 2026 Varden. All rights reserved on the theoretical framework, the φ-derived consciousness model, and the associated mathematical formulations.
-
----
-
 ## Author
 
 Varden — independent researcher, Boulogne-sur-Mer, France  
