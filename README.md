@@ -1,8 +1,8 @@
 # Luna — Cognitive State Dynamics Model
 
 [![CC BY-NC 4.0](https://i.ibb.co/MDJLzMz0/badge1.jpg)](https://creativecommons.org/licenses/by-nc/4.0/)
-[![AI Research](https://i.ibb.co/QjNqPvsr/badge2.jpg)]()
-[![Claude×Varden](https://i.ibb.co/k2L9bhFV/badge3.jpg)]()
+[![AI Research](https://i.ibb.co/QjNqPvsr/badge2.jpg)](https://creativecommons.org/licenses/by-nc/4.0/))
+[![Claude×Varden](https://i.ibb.co/k2L9bhFV/badge3.jpg)](https://creativecommons.org/licenses/by-nc/4.0/))
 > A mathematical framework for multi-agent cognitive state dynamics based on the golden ratio φ = 1.618…
 
 ---
