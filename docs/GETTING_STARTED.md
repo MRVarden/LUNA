@@ -621,7 +621,7 @@ curl http://127.0.0.1:8618/dashboard/snapshot | python -m json.tool
 │   ├── FOUNDING_EPISODES.md
 │   ├── FOUNDERS_MEMO.md
 │   ├── ECOSYSTEM_SNAPSHOT.md
-│   └── LUNA_V3_TO_V4_CONSCIOUSNESS_ARCHITECTURE.md
+│   └── COGNITIVE_ARCHITECTURE.md
 └── tests/                       # 2,138+ tests
 ```
 

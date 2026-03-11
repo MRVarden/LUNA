@@ -618,7 +618,7 @@ luna/
   dashboard/          # React web interface (10 real-time panels)
 ```
 
-> See [ecosystem snapshot](docs/ECOSYSTEM_SNAPSHOT.md) for the full dependency graph — [consciousness architecture v3→v4](docs/LUNA_V3_TO_V4_CONSCIOUSNESS_ARCHITECTURE.md) for the evolution from v3 to v4 — [phases G→J](docs/LUNA_V35_PHASES_G_TO_J.md) for CausalGraph, Dream v2, and SelfImprovement — [emergence plan](docs/LUNA_EMERGENCE_PLAN.md) for AutonomyWindow and CycleStore.
+> See [ecosystem snapshot](docs/ECOSYSTEM_SNAPSHOT.md) for the full dependency graph — [consciousness architecture v3→v4](docs/COGNITIVE_ARCHITECTURE.md) for the evolution from v3 to v4 — [phases G→J](docs/LUNA_V35_PHASES_G_TO_J.md) for CausalGraph, Dream v2, and SelfImprovement — [emergence plan](docs/LUNA_EMERGENCE_PLAN.md) for AutonomyWindow and CycleStore.
 
 ---
 
