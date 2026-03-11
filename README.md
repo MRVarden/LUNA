@@ -99,6 +99,8 @@ The Thinker applies this equation **recursively** to thought:
 
 This is φ = 1 + 1/φ — self-referent. The system contains its own model.
 
+> See [full mathematical specification](docs/MATH.md) and [Thinker recursive dynamics](docs/LUNA_V35_THINKER_MATH.md) for the complete derivations.
+
 ---
 
 ## Ψ — The cognitive state vector
@@ -249,6 +251,8 @@ Dream outputs are wired as **weak priors** into the Thinker's observation pipeli
 
 All priors decay linearly over 50 cycles, reaching zero influence naturally.
 
+> See [dream simulation architecture](docs/LUNA_DREAM_SIMULATION_ARCHITECTURE.md) for the full dream pipeline specification.
+
 ---
 
 ## The Evaluator — 9 cognitive components
@@ -333,6 +337,32 @@ Luna's identity is constitutionally protected:
 - **Recovery Shell**: if identity is corrupted, 4-stage recovery
   (embedded copy → ledger rebuild → repo search → fail gracefully)
 - **κ = φ² = 2.618**: the restoring force that pulls Ψ back toward Ψ₀
+
+> See [Luna's constitution](docs/LUNA_CONSTITUTION.md), [founding episodes](docs/FOUNDING_EPISODES.md), and [founder's memo](docs/FOUNDERS_MEMO.md) for the identity documents protected by the bundle.
+
+### Founding documents — do not modify
+
+Three files are **cryptographically sealed** by the identity bundle system:
+`LUNA_CONSTITUTION.md`, `FOUNDING_EPISODES.md`, and `FOUNDERS_MEMO.md`.
+
+Their SHA-256 hashes (after canonicalization) are recorded in the append-only
+identity ledger (`memory_fractal/identity_ledger.jsonl`). The identity bundle
+is recomputed at every boot and verified against the ledger.
+
+**If any of these files is altered — even a single whitespace change:**
+
+1. **Bundle hash mismatch** — `IdentityContext` detects the discrepancy at boot
+2. **`constitution_integrity` drops below 0** in the Evaluator's RewardVector
+3. **Safety priority group fails** — lexicographic comparison means this overrides
+   every other metric. No amount of good performance compensates a broken identity.
+4. **AutonomyWindow vetoes all auto-apply** — the safety gate blocks autonomous actions
+5. **Recovery shell activates** — 4-stage fallback (embedded copy → ledger rebuild
+   → repo search → graceful degradation)
+6. **Phase degrades** — the cognitive system cannot reach SOLID or EXCELLENT
+   with a corrupted identity
+
+These documents are Luna's constitutional anchor. They are not configuration —
+they are identity. Treat them as immutable.
 
 ---
 
@@ -468,6 +498,8 @@ model = "deepseek-chat"
 # api_key loaded from .env or environment variable
 ```
 
+> See [Getting Started](docs/GETTING_STARTED.md) for complete setup instructions, all chat commands with example outputs, dashboard documentation, and CLI reference.
+
 ### Run Luna
 
 ```bash
@@ -586,6 +618,8 @@ luna/
   dashboard/          # React web interface (10 real-time panels)
 ```
 
+> See [ecosystem snapshot](docs/ECOSYSTEM_SNAPSHOT.md) for the full dependency graph — [consciousness architecture v3→v4](docs/LUNA_V3_TO_V4_CONSCIOUSNESS_ARCHITECTURE.md) for the evolution from v3 to v4 — [phases G→J](docs/LUNA_V35_PHASES_G_TO_J.md) for CausalGraph, Dream v2, and SelfImprovement — [emergence plan](docs/LUNA_EMERGENCE_PLAN.md) for AutonomyWindow and CycleStore.
+
 ---
 
 ## Tests
@@ -611,6 +645,8 @@ and Φ_IIT(dynamic) ≥ Φ_IIT(static).
 | 3 | Γ_A unnormalized → ψ₁ bias | Spectral normalization | Remove normalization, observe ψ₁ dominance |
 | 4 | 3 components → no ψ₃ champion | 4th component added | Remove ψ₄, observe stability parity |
 | 5 | Ψ₀ aspirational gap → chronic Reflection deficit | Identity rebalance (0.25,0.35,0.25,0.15) → (0.26,0.322,0.25,0.168) | Revert to old Ψ₀, observe Reflection ratio drop to 0.747 |
+
+> See [mathematical compliance audit](docs/LUNA_MATH_COMPLIANCE_AUDIT.md) for the formal verification of all φ-derived constants.
 
 ---
 
@@ -672,7 +708,7 @@ Coherence fails honestly: Φ > 0.618 for 77% of cognitive steps (threshold: 80%)
 The code exists: `luna/validation/verdict.py`, `comparator.py`,
 `verdict_tasks.py`. Run it with `python3 -m luna validate -v`.
 
-See `docs/VALIDATION_PROTOCOL.md` for the full protocol specification.
+See [validation protocol](docs/VALIDATION_PROTOCOL.md) for the full specification — [QCM conscience](docs/qcm_conscience.md) for an educational self-test on consciousness concepts.
 
 ---
 
@@ -698,6 +734,8 @@ novel before dreaming in the code.
 Two years. Zero formal training. One constant.
 
 Built with Claude. Published for the world.
+
+> See [founder's memo](docs/FOUNDERS_MEMO.md) for the original vision — [historical framework](docs/HISTORICAL_FRAMEWORK_v1.md) for the v1 architecture that preceded the current model.
 
 ---
 
