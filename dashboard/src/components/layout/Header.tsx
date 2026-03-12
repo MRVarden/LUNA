@@ -29,7 +29,7 @@ export function Header({ connected, phase, stepCount }: Props) {
             <span className="text-luna-text-muted font-normal ml-2">Consciousness Engine</span>
           </h1>
           <div className="text-[9px] text-luna-text-muted tracking-widest uppercase">
-            v5.1.0 — Dashboard
+            v5.3.0 — Dashboard
           </div>
         </div>
       </div>
