@@ -17,7 +17,7 @@ import math
 
 import numpy as np
 
-from luna_common.constants import PHI, INV_PHI, INV_PHI2
+from luna_common.constants import PHI, INV_PHI, INV_PHI2, INV_PHI3
 from luna_common.schemas.cycle import (
     CycleRecord,
     RewardComponent,
@@ -174,12 +174,17 @@ class Evaluator:
         return 1.0 - 2.0 * js_norm
 
     def _compute_reflection_depth(self, record: CycleRecord) -> float:
-        """Thinker confidence * causality richness. Maps [0,1] -> [-1,+1]."""
+        """Thinker confidence + causality richness, weighted equally.
+
+        confidence mapped on [INV_PHI3, 0.50] -> [0, 1]
+        richness   mapped on [5, 50]          -> [0, 1]
+        Combined raw = 0.5 * conf + 0.5 * rich, then [0, 1] -> [-1, +1].
+        """
         confidence = record.thinker_confidence
-        # 5+ causal links = full richness
-        causal_ratio = min(record.causalities_count / 5.0, 1.0)
-        raw = confidence * causal_ratio
-        return 2.0 * raw - 1.0
+        conf_score = max(0.0, min(1.0, (confidence - INV_PHI3) / (0.50 - INV_PHI3)))
+        rich_score = max(0.0, min(1.0, (record.causalities_count - 5) / 45.0))
+        raw = 0.50 * conf_score + 0.50 * rich_score
+        return _clamp(2.0 * raw - 1.0)
 
     def _compute_perception_acuity(self, record: CycleRecord) -> float:
         """Observation count and diversity. Maps [0,1] -> [-1,+1]."""

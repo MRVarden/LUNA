@@ -52,6 +52,11 @@ class DeepSeekProvider(LLMBridge):
             full_messages.append({"role": "system", "content": system_prompt})
         full_messages.extend(messages)
 
+        # Sanitize surrogates that crash the JSON encoder (WSL terminal artefact).
+        for msg in full_messages:
+            if "content" in msg and isinstance(msg["content"], str):
+                msg["content"] = msg["content"].encode("utf-8", errors="replace").decode("utf-8")
+
         params: dict = {
             "model": self._model,
             "messages": full_messages,

@@ -162,17 +162,17 @@ class TestEvaluatorComponents:
 
     def test_reflection_depth_with_causalities(self):
         self.evaluator = Evaluator(psi_0=_PSI_LUNA)
-        record = _make_record(thinker_confidence=0.9, causalities_count=5)
+        record = _make_record(thinker_confidence=0.9, causalities_count=50)
         rv = self.evaluator.evaluate(record)
-        # 0.9 * 1.0 = 0.9 → 2*0.9 - 1 = 0.8
-        assert rv.get("reflection_depth") == pytest.approx(0.8, abs=0.05)
+        # conf_score=1.0 (capped), rich_score=1.0, raw=1.0 -> +1.0
+        assert rv.get("reflection_depth") == pytest.approx(1.0, abs=0.05)
 
     def test_reflection_depth_zero_causalities(self):
         self.evaluator = Evaluator(psi_0=_PSI_LUNA)
         record = _make_record(thinker_confidence=0.9, causalities_count=0)
         rv = self.evaluator.evaluate(record)
-        # 0.9 * 0.0 = 0.0 → 2*0 - 1 = -1.0
-        assert rv.get("reflection_depth") == pytest.approx(-1.0, abs=0.01)
+        # conf_score=1.0, rich_score=0.0 (below 5), raw=0.5 -> 0.0
+        assert rv.get("reflection_depth") == pytest.approx(0.0, abs=0.05)
 
     def test_perception_acuity_with_observations(self):
         self.evaluator = Evaluator(psi_0=_PSI_LUNA)
