@@ -1,6 +1,6 @@
 // Luna Dashboard — CC-BY-NC-4.0 — (c) Varden
 // https://creativecommons.org/licenses/by-nc/4.0/
-import { Brain, Heart, GitBranch, Award, Moon, Zap, Shield, Radio, BarChart3 } from 'lucide-react'
+import { Brain, Heart, GitBranch, Award, Moon, Zap, Shield, Radio, BarChart3, TrendingUp } from 'lucide-react'
 import { Header } from './components/layout/Header'
 import { GlassCard } from './components/layout/GlassCard'
 import { PsiRadar } from './components/consciousness/PsiRadar'
@@ -14,6 +14,7 @@ import { CognitiveFlow } from './components/consciousness/CognitiveFlow'
 import { DreamPanel } from './components/dream/DreamPanel'
 import { IdentityPanel } from './components/identity/IdentityPanel'
 import { AutonomyPanel } from './components/autonomy/AutonomyPanel'
+import { SynthesisPanel } from './components/metrics/SynthesisPanel'
 import { useLunaState } from './hooks/useLunaState'
 
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
         connected={state.connected}
         phase={cs?.phase ?? 'BROKEN'}
         stepCount={cs?.step_count ?? 0}
+        llmState={state.circuit_breaker?.state ?? 'closed'}
       />
 
       <main className="p-4 max-w-[1600px] mx-auto">
@@ -152,7 +154,18 @@ export default function App() {
             <DreamPanel dream={state.dream} />
           </GlassCard>
 
-          {/* ── Row 5: Cycle Timeline full width ── */}
+          {/* ── Row 5: Synthesis ── */}
+
+          <GlassCard
+            title="Synthese"
+            subtitle="Retrospective longitudinale — tendances & anomalies"
+            icon={<TrendingUp className="w-4 h-4" />}
+            className="col-span-12 md:col-span-8"
+          >
+            <SynthesisPanel synthesis={state.synthesis} />
+          </GlassCard>
+
+          {/* ── Row 6: Cycle Timeline full width ── */}
 
           <GlassCard
             title="Cycles Récents"
@@ -188,7 +201,7 @@ export default function App() {
             </span>
           </a>
 
-          <span className="text-[9px] text-luna-text-muted">Luna Consciousness Engine v5.1.0</span>
+          <span className="text-[9px] text-luna-text-muted">Luna Consciousness Engine v6.0.0</span>
         </div>
       </main>
     </div>

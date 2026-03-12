@@ -169,6 +169,7 @@ class VoiceValidator:
         decision: ConsciousDecision,
         has_pipeline_context: bool = False,
         consciousness: ConsciousnessState | None = None,
+        lexicon: object | None = None,
     ) -> ValidationResult:
         """Validate an LLM response against the Thought contract.
 
@@ -190,12 +191,12 @@ class VoiceValidator:
         response = _dedup_timestamps(response)
 
         # Collect all grounded data from Thought, Decision, and State.
-        grounded = _extract_grounded_data(thought, decision, consciousness)
+        grounded = _extract_grounded_data(thought, decision, consciousness, lexicon=lexicon)
 
         violations: list[Violation] = []
 
         # -- Check 1: hallucinated agents -----------------------------------
-        violations.extend(_check_agents(response))
+        violations.extend(_check_agents(response, known_names=grounded.known_names))
 
         # -- Check 2: code blocks -------------------------------------------
         violations.extend(_check_code_blocks(response, has_pipeline_context))
@@ -231,6 +232,7 @@ class VoiceValidator:
         decision: ConsciousDecision,
         has_pipeline_context: bool = False,
         consciousness: ConsciousnessState | None = None,
+        lexicon: object | None = None,
     ) -> tuple[ValidationResult, VoiceDelta]:
         """Validate and produce a VoiceDelta learning signal.
 
@@ -242,6 +244,7 @@ class VoiceValidator:
         result = VoiceValidator.validate(
             response, thought, decision,
             has_pipeline_context, consciousness,
+            lexicon=lexicon,
         )
 
         # Map ViolationType to VoiceDelta categories
@@ -331,6 +334,7 @@ def _extract_grounded_data(
     thought: Thought | None,
     decision: ConsciousDecision,
     consciousness: ConsciousnessState | None = None,
+    lexicon: object | None = None,
 ) -> _GroundedData:
     """Collect every number and proper name that the LLM is allowed to cite."""
     numbers: set[str] = set()
@@ -367,6 +371,11 @@ def _extract_grounded_data(
     # Add canonical agent names as known names.
     names.update(_VALID_AGENTS)
 
+    # v6.0: Add lexicon words (learned vocabulary) as known names.
+    if lexicon is not None and hasattr(lexicon, "words"):
+        for word in lexicon.words():
+            names.add(word.upper())
+
     return _GroundedData(
         numbers=frozenset(numbers),
         known_names=frozenset(names),
@@ -377,7 +386,10 @@ def _extract_grounded_data(
 #  INDIVIDUAL CHECKS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def _check_agents(response: str) -> list[Violation]:
+def _check_agents(
+    response: str,
+    known_names: frozenset[str] = frozenset(),
+) -> list[Violation]:
     """Detect mentions of agent names that don't exist."""
     violations: list[Violation] = []
     for m in _AGENT_PATTERN_RE.finditer(response):
@@ -385,7 +397,7 @@ def _check_agents(response: str) -> list[Violation]:
         # Skip short matches (likely acronyms like "API", "SQL", "HTTP").
         if len(name) < 4:
             continue
-        if name not in _VALID_AGENTS and name not in _ALLOWED_UPPERCASE:
+        if name not in _VALID_AGENTS and name not in _ALLOWED_UPPERCASE and name not in known_names:
             violations.append(Violation(
                 type=ViolationType.HALLUCINATED_AGENT,
                 detail=f"Unknown agent: {name}",

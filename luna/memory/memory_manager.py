@@ -264,6 +264,160 @@ class MemoryManager:
         }
 
     # ------------------------------------------------------------------
+    # Cold archival (v6.0) — ZERO DELETION, compress to zstd
+    # ------------------------------------------------------------------
+
+    async def archive_cold(self, threshold_resonance: float = 0.236) -> int:
+        """Archive low-resonance memories to cold storage (zstd compressed).
+
+        Memories are NEVER deleted — they are moved to _cold_storage.json.zst.
+        This is a JSONL file compressed with zstd for efficient storage.
+
+        Args:
+            threshold_resonance: Entries with phi_resonance below this
+                                 are archived. Default: INV_PHI3 (0.236).
+
+        Returns:
+            Number of entries archived.
+        """
+        return await asyncio.to_thread(self._archive_cold_sync, threshold_resonance)
+
+    def _archive_cold_sync(self, threshold: float) -> int:
+        """Sync cold archival — move low-resonance entries to zstd archive."""
+        cold_path = self._root / "_cold_storage.json.zst"
+        archived = 0
+
+        # Read existing cold storage.
+        existing = self._read_cold_storage(cold_path)
+
+        for level in self._levels:
+            level_dir = self._root / level
+            if not level_dir.is_dir():
+                continue
+
+            for path in sorted(level_dir.iterdir()):
+                if not path.is_file() or path.suffix != ".json" or path.name == "index.json":
+                    continue
+                entry = _parse_file(path)
+                if entry is None:
+                    continue
+                if entry.phi_resonance < threshold:
+                    # Serialize to JSONL entry.
+                    record = {
+                        "id": entry.id,
+                        "type": entry.memory_type,
+                        "content": entry.content,
+                        "keywords": entry.keywords,
+                        "phi_resonance": entry.phi_resonance,
+                        "accessed_count": entry.accessed_count,
+                        "created_at": entry.created_at.isoformat(),
+                        "updated_at": entry.updated_at.isoformat(),
+                        "level": level,
+                    }
+                    existing.append(record)
+                    # Remove from hot storage.
+                    try:
+                        path.unlink()
+                    except OSError:
+                        pass
+                    archived += 1
+
+        if archived > 0:
+            self._write_cold_storage(cold_path, existing)
+            log.info("Cold archival: %d entries -> %s", archived, cold_path)
+
+        return archived
+
+    async def search_cold(
+        self,
+        keywords: list[str],
+        limit: int = 10,
+    ) -> list[MemoryEntry]:
+        """Search cold storage for entries matching keywords."""
+        return await asyncio.to_thread(self._search_cold_sync, keywords, limit)
+
+    def _search_cold_sync(self, keywords: list[str], limit: int) -> list[MemoryEntry]:
+        """Sync cold search — decompress and search."""
+        cold_path = self._root / "_cold_storage.json.zst"
+        records = self._read_cold_storage(cold_path)
+        if not records:
+            return []
+
+        kw_set = {k.lower() for k in keywords}
+        matches: list[MemoryEntry] = []
+
+        for rec in records:
+            rec_kw = {k.lower() for k in rec.get("keywords", [])}
+            if kw_set & rec_kw:
+                matches.append(MemoryEntry(
+                    id=rec["id"],
+                    content=rec.get("content", ""),
+                    memory_type=rec.get("type", "leaf"),
+                    keywords=rec.get("keywords", []),
+                    phi_resonance=rec.get("phi_resonance", 0.0),
+                    accessed_count=rec.get("accessed_count", 0),
+                    created_at=_parse_dt(rec.get("created_at")),
+                    updated_at=_parse_dt(rec.get("updated_at")),
+                ))
+                if len(matches) >= limit:
+                    break
+
+        return matches
+
+    @staticmethod
+    def _read_cold_storage(cold_path: Path) -> list[dict]:
+        """Read cold storage (JSONL+zstd). Returns list of dicts."""
+        if not cold_path.exists():
+            return []
+        try:
+            import zstandard as zstd
+
+            with open(cold_path, "rb") as f:
+                dctx = zstd.ZstdDecompressor()
+                data = dctx.decompress(f.read())
+            records = []
+            for line in data.decode("utf-8").strip().split("\n"):
+                if line.strip():
+                    records.append(json.loads(line))
+            return records
+        except ImportError:
+            # zstd not available — try reading as plain JSONL.
+            try:
+                records = []
+                with open(cold_path, "r") as f:
+                    for line in f:
+                        if line.strip():
+                            records.append(json.loads(line))
+                return records
+            except Exception:
+                return []
+        except Exception:
+            log.debug("Cold storage read failed", exc_info=True)
+            return []
+
+    @staticmethod
+    def _write_cold_storage(cold_path: Path, records: list[dict]) -> None:
+        """Write cold storage (JSONL+zstd). Atomic write."""
+        cold_path.parent.mkdir(parents=True, exist_ok=True)
+        jsonl = "\n".join(json.dumps(r, ensure_ascii=False) for r in records)
+
+        try:
+            import zstandard as zstd
+
+            cctx = zstd.ZstdCompressor(level=3)
+            compressed = cctx.compress(jsonl.encode("utf-8"))
+            tmp = cold_path.with_suffix(".tmp")
+            with open(tmp, "wb") as f:
+                f.write(compressed)
+            tmp.replace(cold_path)
+        except ImportError:
+            # Fallback: write plain JSONL.
+            tmp = cold_path.with_suffix(".tmp")
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.write(jsonl)
+            tmp.replace(cold_path)
+
+    # ------------------------------------------------------------------
     # Sync internals
     # ------------------------------------------------------------------
 

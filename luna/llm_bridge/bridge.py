@@ -33,6 +33,7 @@ class LLMResponse:
     model: str
     input_tokens: int
     output_tokens: int
+    reasoning: str = ""  # Chain-of-thought from reasoning models (R1, o1, Claude thinking)
 
 
 class LLMBridge(ABC):

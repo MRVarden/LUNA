@@ -19,6 +19,7 @@ Compatibility: falls back to LegacyDreamCycle if causal graph has < 10 edges.
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from dataclasses import dataclass, field
@@ -72,6 +73,7 @@ class DreamResult:
     graph_stats: dict = field(default_factory=dict)
     duration: float = 0.0
     mode: str = "full"  # "full" or "quick"
+    synthesis_report: object | None = None  # v6.0 — SynthesisReport
     # PlanAffect Phase 5 — dream affect outputs
     episodes_recalled: int = 0
     mood_apaisement: bool = False
@@ -104,6 +106,7 @@ class DreamCycle:
         params: LearnableParams | None = None,
         affect_engine: object | None = None,
         episodic_memory: object | None = None,
+        synthesis: object | None = None,
     ) -> None:
         self._thinker = thinker
         self._graph = causal_graph
@@ -115,6 +118,7 @@ class DreamCycle:
         self._params = params
         self._affect_engine = affect_engine
         self._episodic_memory = episodic_memory
+        self._synthesis = synthesis
 
     def is_mature(self) -> bool:
         """True if causal graph has enough edges for full dream.
@@ -183,7 +187,9 @@ class DreamCycle:
                 log.info("Dream CEM: %s", trace.summary())
 
         # Mode 5: Psi_0 consolidation (protected)
-        # v5.3: Apply delta to adaptive layer — psi0_core stays immutable.
+        # v6.0 fix: Use update_psi0(new_psi0) which back-derives adaptive correctly.
+        # update_psi0_adaptive(delta) dampens by INV_PHI3 (4.2x weaker), causing
+        # consolidation to have almost no effect.
         if recent_cycles:
             psi0 = tuple(float(x) for x in self._state.psi0)
             new_psi0, delta = consolidate_psi0(
@@ -193,15 +199,24 @@ class DreamCycle:
             if any(abs(d) > 1e-8 for d in delta):
                 import numpy as np
                 try:
-                    self._state.update_psi0_adaptive(np.array(delta))
+                    self._state.update_psi0(np.array(new_psi0))
                     result.psi0_applied = True
-                    log.info("Psi0 consolidated (adaptive): delta=%s", tuple(round(d, 4) for d in delta))
+                    log.info("Psi0 consolidated: delta=%s", tuple(round(d, 4) for d in delta))
                 except Exception:
                     log.warning("Psi0 consolidation failed", exc_info=True)
                     result.psi0_applied = False
 
         # Mode 6: Affect dream (PlanAffect Phase 5)
         self._dream_affect(result)
+
+        # Mode 7: Synthesis longitudinale (v6.0) — read-only retrospective.
+        if self._synthesis is not None:
+            try:
+                report = self._synthesis.run(cycles=recent_cycles, window=50)
+                result.synthesis_report = report
+                log.info("Dream synthesis: %d trends, %d anomalies", len(report.trends), len(report.anomalies))
+            except Exception:
+                log.debug("Dream synthesis failed", exc_info=True)
 
         # Collect final stats
         result.graph_stats = self._graph.stats()
@@ -285,6 +300,79 @@ class DreamCycle:
 
         except Exception:
             log.debug("Dream affect processing failed", exc_info=True)
+
+    @staticmethod
+    def archive_old_dreams(dream_dir: Path, max_age_days: int = 30) -> int:
+        """Archive old dream JSON files to a zstd-compressed JSONL.
+
+        ZERO DELETION: files are moved to dreams_archive.json.zst,
+        never deleted. Original JSON files are removed from hot storage
+        only after successful archival.
+
+        Args:
+            dream_dir: Directory containing dream_*.json files.
+            max_age_days: Files older than this are archived.
+
+        Returns:
+            Number of files archived.
+        """
+        if not dream_dir.is_dir():
+            return 0
+
+        import time as _time
+
+        cutoff = _time.time() - (max_age_days * 86400)
+        archive_path = dream_dir / "dreams_archive.json.zst"
+        archived = 0
+
+        # Read existing archive.
+        existing_lines: list[str] = []
+        if archive_path.exists():
+            try:
+                import zstandard as zstd
+
+                with open(archive_path, "rb") as f:
+                    data = zstd.ZstdDecompressor().decompress(f.read())
+                existing_lines = [l for l in data.decode("utf-8").strip().split("\n") if l.strip()]
+            except (ImportError, Exception):
+                pass
+
+        # Find old dream files.
+        for path in sorted(dream_dir.glob("dream_*.json")):
+            if path.stat().st_mtime < cutoff:
+                try:
+                    content = path.read_text(encoding="utf-8")
+                    existing_lines.append(content.strip())
+                    path.unlink()
+                    archived += 1
+                except Exception:
+                    pass
+
+        if archived > 0:
+            jsonl = "\n".join(existing_lines)
+            try:
+                import zstandard as zstd
+
+                compressed = zstd.ZstdCompressor(level=3).compress(jsonl.encode("utf-8"))
+                tmp = archive_path.with_suffix(".tmp")
+                with open(tmp, "wb") as f:
+                    f.write(compressed)
+                tmp.replace(archive_path)
+            except ImportError:
+                # Fallback: plain JSONL.
+                tmp = archive_path.with_suffix(".tmp")
+                with open(tmp, "w", encoding="utf-8") as f:
+                    f.write(jsonl)
+                tmp.replace(archive_path)
+
+            log.info("Dream archive: %d files -> %s", archived, archive_path)
+
+        return archived
+
+    @staticmethod
+    def cleanup_old_dreams(dream_dir: Path, max_age_days: int = 30) -> int:
+        """Alias for archive_old_dreams — backward compatible name."""
+        return DreamCycle.archive_old_dreams(dream_dir, max_age_days)
 
     def run_quick(self) -> DreamResult:
         """Quick version — only Mode 2 (reflection, 30 iterations).

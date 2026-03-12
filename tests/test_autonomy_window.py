@@ -422,7 +422,7 @@ class TestSmokeTests:
     async def test_passing_tests(self, tmp_path):
         """Mock a passing test command."""
         win = _make_window(tmp_path, w=1)
-        win._test_command = "python3 -c print('ok')"
+        win._test_command = "python3 -c 'print(\"ok\")'"
         result = await win._run_smoke_tests()
         assert result is True
 

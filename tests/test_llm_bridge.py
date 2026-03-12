@@ -177,7 +177,8 @@ class TestAnthropicProvider:
     async def test_anthropic_complete_mock(self):
         """Mocked Anthropic API returns correct LLMResponse."""
         mock_response = MagicMock()
-        mock_response.content = [MagicMock(text="Luna decides: approved.")]
+        text_block = MagicMock(type="text", text="Luna decides: approved.")
+        mock_response.content = [text_block]
         mock_response.model = "claude-sonnet-4-20250514"
         mock_response.usage = MagicMock(input_tokens=100, output_tokens=20)
 

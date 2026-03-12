@@ -1,9 +1,9 @@
-# Luna v5.1 Configuration — Convergence
+# Luna v6.0 Configuration — Resilience
 # All Phi-derived parameters are computed from PHI in luna_common.constants
 # This file is for runtime configuration only.
 
 [luna]
-version = "5.1.0"
+version = "6.0.0"
 agent_name = "LUNA"
 data_dir = "memory_fractal"
 
@@ -95,6 +95,6 @@ recovery_enabled = true
 [api]
 host = "127.0.0.1"
 port = 8618                    # floor(PHI * 5326) = 8618
-auth_enabled = false              # API sur 127.0.0.1 uniquement, pas besoin de token
+auth_enabled = true               # Creer config/api_token avec un token secret avant d'exposer l'API
 auth_token_file = "config/api_token"
 rate_limit_rpm = 60

@@ -55,6 +55,8 @@ from luna.memory.cycle_store import CycleStore
 from luna.autonomy.window import AutonomyWindow
 from luna.consciousness.telemetry_summarizer import TelemetrySummarizer
 from luna.dream.dream_cycle import DreamCycle, DreamResult
+from luna.llm_bridge.circuit_breaker import CircuitBreaker, CircuitState
+from luna.consciousness.synthesis import Synthesis, SynthesisReport
 from luna.dream.learning import DreamLearning, Interaction
 from luna.dream.priors import (
     DreamPriors,
@@ -152,13 +154,14 @@ class ChatResponse:
 
 
 # Slash commands recognized by the chat session.
-_COMMANDS = frozenset({"/status", "/dream", "/memories", "/help", "/quit"})
+_COMMANDS = frozenset({"/status", "/dream", "/memories", "/synthesis", "/help", "/quit"})
 
 _HELP_TEXT = (
     "Commandes disponibles:\n"
     "  /status       — Etat de conscience et metriques\n"
     "  /dream        — Declencher un cycle de reve\n"
     "  /memories [N] — Afficher les N memoires recentes (defaut: 10)\n"
+    "  /synthesis    — Retrospective longitudinale (tendances, anomalies)\n"
     "  /help         — Cette aide\n"
     "  /quit         — Sauvegarder et quitter\n"
 )
@@ -231,6 +234,10 @@ class ChatSession:
         self._voice_correction_count: int = 0  # voice corrections this session
         # Dream priors — weak signals persisted across dream cycles.
         self._dream_priors: DreamPriors | None = None
+        # v6.0 — Circuit breaker, synthesis, session state.
+        self._circuit_breaker: CircuitBreaker | None = None
+        self._synthesis: Synthesis | None = None
+        self._last_synthesis_report: SynthesisReport | None = None
 
     @property
     def engine(self) -> LunaEngine:
@@ -341,10 +348,17 @@ class ChatSession:
         self._reward_history = loop._reward_history
         self._autonomy_window = loop.autonomy_window
         self._dream_priors = loop.dream_priors
+        # v6.0 aliases.
+        self._circuit_breaker = loop.circuit_breaker
+        self._synthesis = loop.synthesis
+        self._last_synthesis_report = loop.last_synthesis_report
 
         # -- Chat-specific init (NOT delegated) ---------------------------
         self._load_history()
         self._session_start_index = len(self._history)
+
+        # v6.0: Restore session state and detect boot gap.
+        boot_gap = self._load_session_state()
 
         self._started = True
 
@@ -376,6 +390,11 @@ class ChatSession:
                 log.warning("EnvironmentWatcher start failed", exc_info=True)
 
         self._maybe_upgrade_checkpoint()
+
+        # v6.0: Catch-up dream if Luna was offline too long.
+        if boot_gap > 0:
+            self._maybe_catch_up_dream(boot_gap)
+
         log.info("ChatSession started (via CognitiveLoop)")
 
     # _init_llm() and _init_v35_components() removed — now owned by
@@ -617,7 +636,7 @@ class ChatSession:
         return phi_snapshot
 
     def _save_checkpoint(self) -> None:
-        """Save cognitive checkpoint + chat history (called on stop and periodically)."""
+        """Save cognitive checkpoint + chat history + session state."""
         if self._engine.consciousness is None:
             return
         ckpt = self._config.resolve(self._config.consciousness.checkpoint_file)
@@ -628,6 +647,7 @@ class ChatSession:
             phi_metrics=phi_snapshot,
         )
         self._save_history()
+        self._save_session_state()
         log.info(
             "Checkpoint saved (bootstrap_ratio=%.2f)",
             self._metric_tracker.bootstrap_ratio(),
@@ -660,6 +680,118 @@ class ChatSession:
             log.debug("v3.5+v4.0 state saved")
         except Exception:
             log.warning("v3.5 state save failed", exc_info=True)
+
+    # ------------------------------------------------------------------
+    # Session state persistence (v6.0 Phase D)
+    # ------------------------------------------------------------------
+
+    def _session_state_path(self) -> Path:
+        """Path to the session state file."""
+        mem_root = self._config.memory.fractal_root
+        return self._config.resolve(mem_root) / "session_state.json"
+
+    def _save_session_state(self) -> None:
+        """Persist ephemeral session state for cross-session continuity.
+
+        Saved on every checkpoint and on stop(). Allows boot gap detection
+        and restoration of turn count, topic history, etc.
+        """
+        path = self._session_state_path()
+        state = {
+            "version": "6.0.0",
+            "saved_at": datetime.now(timezone.utc).isoformat(),
+            "turn_count": self._turn_count,
+            "recent_topics": self._recent_topics[-20:],
+            "last_dream_turn": self._last_dream_turn,
+            "voice_correction_count": self._voice_correction_count,
+            "curiosity_counts": dict(
+                sorted(self._curiosity_counts.items(), key=lambda x: x[1], reverse=True)[:50]
+            ),
+            "circuit_breaker": self._circuit_breaker.to_dict() if self._circuit_breaker else None,
+        }
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(".tmp")
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(state, f, ensure_ascii=False, indent=2)
+            tmp.replace(path)
+            log.debug("Session state saved (%d turns)", self._turn_count)
+        except Exception:
+            log.warning("Failed to save session state", exc_info=True)
+
+    def _load_session_state(self) -> float:
+        """Restore session state from disk. Returns gap in seconds since last save.
+
+        Returns 0.0 if no prior state exists (first boot).
+        """
+        path = self._session_state_path()
+        if not path.is_file():
+            return 0.0
+        try:
+            with open(path, encoding="utf-8") as f:
+                state = json.load(f)
+            if not isinstance(state, dict):
+                return 0.0
+
+            # Restore turn count and topic history.
+            self._turn_count = state.get("turn_count", 0)
+            self._recent_topics = state.get("recent_topics", [])
+            self._last_dream_turn = state.get("last_dream_turn", -1)
+            self._voice_correction_count = state.get("voice_correction_count", 0)
+            self._curiosity_counts = state.get("curiosity_counts", {})
+
+            # Compute gap since last save.
+            saved_at_str = state.get("saved_at")
+            if saved_at_str:
+                saved_at = datetime.fromisoformat(saved_at_str)
+                if saved_at.tzinfo is None:
+                    saved_at = saved_at.replace(tzinfo=timezone.utc)
+                gap = (datetime.now(timezone.utc) - saved_at).total_seconds()
+                log.info(
+                    "Session state restored (turns=%d, gap=%.0fs)",
+                    self._turn_count, gap,
+                )
+                return max(0.0, gap)
+
+            log.info("Session state restored (turns=%d, no timestamp)", self._turn_count)
+            return 0.0
+        except Exception:
+            log.warning("Failed to load session state", exc_info=True)
+            return 0.0
+
+    def _maybe_catch_up_dream(self, gap_seconds: float) -> None:
+        """Trigger a catch-up dream if the boot gap exceeds the inactivity threshold.
+
+        This ensures Luna consolidates after long periods of absence,
+        just as she would during normal inactivity-triggered dreams.
+        """
+        threshold = self._config.dream.inactivity_threshold
+        if gap_seconds < threshold:
+            return
+        if not self._config.dream.enabled:
+            return
+        if self._dream_cycle is None:
+            return
+
+        log.info(
+            "Boot gap %.0fs exceeds threshold %.0fs — scheduling catch-up dream",
+            gap_seconds, threshold,
+        )
+        try:
+            recent = self._load_recent_cycles()
+            psi0_history = self._psi0_delta_history()
+            dream_result = self._dream_cycle.run(
+                recent_cycles=recent,
+                psi0_delta_history=psi0_history,
+            )
+            log.info(
+                "Catch-up dream completed: %d skills, psi0_applied=%s",
+                len(dream_result.skills_learned),
+                dream_result.psi0_applied,
+            )
+            self._finalize_dream_v2(dream_result)
+        except Exception:
+            log.warning("Catch-up dream failed", exc_info=True)
 
     def _populate_dream_priors(self, dream_result: DreamResult) -> None:
         """Extract weak priors from dream outputs for cognitive injection."""
@@ -698,12 +830,48 @@ class ChatSession:
                 self._evaluator._psi_0 = tuple(float(x) for x in cs.psi0)
         self._save_v35_state()
         self._save_checkpoint()
+        # Cache synthesis report from dream.
+        if dream_result.synthesis_report is not None:
+            self._last_synthesis_report = dream_result.synthesis_report
+            if self._loop is not None:
+                self._loop.last_synthesis_report = dream_result.synthesis_report
+        # Post-dream GC.
+        self._run_gc()
         if self._endogenous is not None:
             insight = (
                 f"{len(dream_result.skills_learned)} competences, "
                 f"{len(dream_result.simulations)} simulations"
             )
             self._endogenous.register_dream_insight(insight)
+
+    def _run_gc(self) -> None:
+        """Post-dream garbage collection — archive old data (ZERO DELETION).
+
+        1. Consolidate cycles (already in CycleStore).
+        2. Archive old dream JSON files to zstd.
+        3. Archive cold memories (low resonance → zstd).
+        """
+        mem_root = self._config.resolve(self._config.memory.fractal_root)
+
+        # Archive old dream files.
+        try:
+            dream_dir = mem_root / "insights"
+            DreamCycle.archive_old_dreams(dream_dir, max_age_days=30)
+        except Exception:
+            log.debug("Dream archive failed", exc_info=True)
+
+        # Archive cold memories.
+        if self._memory is not None:
+            try:
+                import asyncio as _aio
+
+                loop = _aio.get_event_loop()
+                if loop.is_running():
+                    _aio.ensure_future(self._memory.archive_cold())
+                else:
+                    loop.run_until_complete(self._memory.archive_cold())
+            except Exception:
+                log.debug("Cold archival failed", exc_info=True)
 
     def _clear_dream_buffers(self) -> None:
         """Clear wake-cycle buffers after dream consumption."""
@@ -857,8 +1025,8 @@ class ChatSession:
         The LLM is the voice, not the brain. Luna decides what to say
         (deterministically from her cognitive state), the LLM gives it words.
         """
-        poll_interval = 600.0  # seconds between checks (10 min)
-        min_idle = 300.0       # don't interrupt if user active < 5 min
+        poll_interval = 360.0  # seconds between checks (6 min)
+        min_idle = 360.0       # don't interrupt if user active < 6 min
 
         while True:
             try:
@@ -1436,19 +1604,36 @@ class ChatSession:
             decision.facts.append(self._build_status_display())
 
         # 6. LLM call with voice prompt — the LLM translates Luna's decision.
+        # v6.0: Psi backup for rollback on LLM failure.
+        psi_before_llm = cs.psi.copy()
+        llm_t0 = time.monotonic()
+
         # Lazy LLM init retry — if LLM failed at start, try once more
         # via the loop (single owner of all subsystems).
         if self._llm is None and self._loop is not None:
             self._loop._init_llm()
             self._llm = self._loop._llm
 
+        # v6.0: Circuit breaker — skip LLM if OPEN.
+        cb = self._circuit_breaker
+        llm_blocked_by_cb = False
+        if cb is not None and not cb.allow_request():
+            llm_blocked_by_cb = True
+
         llm_success = False
-        if self._llm is not None:
+        llm_latency_ms = 0.0
+        if self._llm is not None and not llm_blocked_by_cb:
+            # v6.0: Build synthesis summary for prompt injection.
+            synthesis_summary = ""
+            if self._last_synthesis_report is not None:
+                synthesis_summary = self._last_synthesis_report.summary
+
             # v3.0: voice prompt from decision, not identity-based system prompt.
             system = build_voice_prompt(
                 decision,
                 memory_context=memory_context,
                 thought=thought,
+                synthesis_summary=synthesis_summary,
             )
             # Include prior session context (last few exchanges) for continuity.
             # These are prefixed with [prior session] so the LLM understands
@@ -1502,15 +1687,25 @@ class ChatSession:
                 in_tok = llm_resp.input_tokens
                 out_tok = llm_resp.output_tokens
                 llm_success = True
+                llm_latency_ms = (time.monotonic() - llm_t0) * 1000.0
+                if cb is not None:
+                    cb.record_success()
             except LLMBridgeError:
                 log.warning("LLM call failed — fallback", exc_info=True)
+                llm_latency_ms = (time.monotonic() - llm_t0) * 1000.0
+                if cb is not None:
+                    cb.record_failure()
+                # v6.0: Rollback psi — Luna doesn't drift when she can't speak.
+                import numpy as _np
+                cs.psi = _np.array(psi_before_llm)
                 content = self._format_status_response(
                     cs.get_phase(), cs.compute_phi_iit(), llm_error=True,
                 )
                 in_tok, out_tok = 0, 0
         else:
             content = self._format_status_response(
-                cs.get_phase(), cs.compute_phi_iit(), llm_error=False,
+                cs.get_phase(), cs.compute_phi_iit(),
+                llm_error=llm_blocked_by_cb,
             )
             in_tok, out_tok = 0, 0
 
@@ -1524,6 +1719,7 @@ class ChatSession:
                     decision=decision,
                     has_pipeline_context=False,
                     consciousness=cs,
+                    lexicon=self._lexicon,
                 )
                 if not validation.valid:
                     log.warning(
@@ -1725,6 +1921,8 @@ class ChatSession:
                     voice_delta=voice_delta,
                     affect_before=affect_before,
                     turn_start=turn_start,
+                    llm_failed=not llm_success,
+                    llm_latency_ms=llm_latency_ms,
                 )
             except Exception:
                 log.info("CycleRecord assembly failed", exc_info=True)
@@ -1948,6 +2146,19 @@ class ChatSession:
                 return "Aucune memoire trouvee."
             lines = [f"- [{e.memory_type}] {e.content[:80]}" for e in entries]
             return "## Memoires recentes\n" + "\n".join(lines)
+
+        if command == "/synthesis":
+            if self._synthesis is None:
+                return "Synthese non disponible (pas de CycleStore)."
+            try:
+                report = self._synthesis.run(window=30)
+                self._last_synthesis_report = report
+                if self._loop is not None:
+                    self._loop.last_synthesis_report = report
+                return f"## Synthese longitudinale\n{report.summary}"
+            except Exception:
+                log.debug("Synthesis command failed", exc_info=True)
+                return "Synthese echouee — pas assez de donnees."
 
         return f"Commande inconnue: {command}. Tapez /help pour la liste."
 
@@ -2232,6 +2443,8 @@ class ChatSession:
         voice_delta: VoiceDelta | None,
         affect_before: dict | None = None,
         turn_start: float,
+        llm_failed: bool = False,
+        llm_latency_ms: float = 0.0,
     ) -> None:
         """Assemble a CycleRecord, evaluate it, and persist."""
         import hashlib as _hl
@@ -2324,6 +2537,9 @@ class ChatSession:
             telemetry_summary=tel_summary,
             learnable_params_before=params_before,
             learnable_params_after=self._learnable_params.snapshot() if self._learnable_params is not None else params_before,
+            llm_failed=llm_failed,
+            llm_latency_ms=max(0.0, llm_latency_ms),
+            llm_circuit_state=self._circuit_breaker.state.value if self._circuit_breaker is not None else "closed",
             duration_seconds=max(0.0, duration),
             dream_priors_active=dream_obs_count,
         )

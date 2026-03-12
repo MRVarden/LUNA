@@ -126,6 +126,7 @@ def create_provider(config: LLMSection) -> LLMBridge:
         return AnthropicProvider(
             model=config.model,
             api_key=config.api_key,
+            timeout=config.timeout,
         )
 
     if provider == "openai":
@@ -137,6 +138,7 @@ def create_provider(config: LLMSection) -> LLMBridge:
             model=config.model,
             api_key=config.api_key,
             base_url=config.base_url,
+            timeout=config.timeout,
         )
 
     if provider == "deepseek":
@@ -148,6 +150,7 @@ def create_provider(config: LLMSection) -> LLMBridge:
             model=config.model,
             api_key=config.api_key,
             base_url=config.base_url,
+            timeout=config.timeout,
         )
 
     if provider == "local":
@@ -157,6 +160,7 @@ def create_provider(config: LLMSection) -> LLMBridge:
             model=config.model,
             base_url=config.base_url or "http://localhost:11434/v1",
             api_key=config.api_key or "ollama",
+            timeout=config.timeout,
         )
 
     raise LLMBridgeError(

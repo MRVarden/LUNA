@@ -99,6 +99,29 @@ export function getMockState(): DashboardState {
       psi0_drift: [0, 0, 0, 0],
     },
     live_reward: null,
+    circuit_breaker: {
+      state: 'closed',
+      failure_count: 0,
+      failure_threshold: 3,
+      recovery_timeout: 300,
+      total_trips: 0,
+      last_failure_time: 0,
+    },
+    synthesis: {
+      cycles_analyzed: 24,
+      trends: [
+        { metric: 'phi_iit', slope: 0.0012, r_squared: 0.72, direction: 'up', window: 24 },
+        { metric: 'thinker_confidence', slope: -0.0003, r_squared: 0.15, direction: 'stable', window: 24 },
+        { metric: 'psi_1', slope: -0.0008, r_squared: 0.45, direction: 'down', window: 24 },
+      ],
+      anomalies: [
+        { metric: 'phi_iit', cycle_index: 18, value: 0.72, sigma_deviation: 2.3 },
+      ],
+      cross_patterns: [
+        { metric_a: 'phi_iit', metric_b: 'thinker_confidence', correlation: 0.68, description: 'Phi_IIT et confiance Thinker correles (+0.680)' },
+      ],
+      summary: 'Synthese longitudinale (24 cycles):\n\nTendances:\n  ^ Phi_IIT: pente=+0.0012 (R2=0.72)\n  v Reflexion: pente=-0.0008 (R2=0.45)',
+    },
     connected: false,
     last_update: Date.now(),
   }
@@ -158,6 +181,9 @@ function generateMockCycles(n: number): CycleRecord[] {
         arousal_after: a + (Math.random() - 0.5) * 0.1,
         dominance_after: d + (Math.random() - 0.5) * 0.1,
       },
+      llm_failed: false,
+      llm_latency_ms: 200 + Math.random() * 800,
+      llm_circuit_state: 'closed',
       auto_apply_candidate: i % 5 === 0,
       auto_applied: false,
       auto_rolled_back: false,

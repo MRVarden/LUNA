@@ -10,6 +10,7 @@ Usage::
 """
 
 from luna.llm_bridge.bridge import LLMBridge, LLMBridgeError, LLMResponse
+from luna.llm_bridge.circuit_breaker import CircuitBreaker, CircuitState
 from luna.llm_bridge.prompt_builder import build_system_prompt
 from luna.llm_bridge.providers import create_provider
 from luna.llm_bridge.voice_validator import (
@@ -23,6 +24,8 @@ __all__ = [
     "LLMBridge",
     "LLMBridgeError",
     "LLMResponse",
+    "CircuitBreaker",
+    "CircuitState",
     "ValidationResult",
     "Violation",
     "ViolationType",

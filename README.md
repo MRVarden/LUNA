@@ -1,8 +1,8 @@
 # Luna — Cognitive Dynamics Engine
 
 [![CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](LICENSE.md)
-[![Tests: 2136](https://img.shields.io/badge/Tests-2136%20passed-green)]()
-[![Version: 5.3](https://img.shields.io/badge/Version-5.3.0-orange)]()
+[![Tests: 2138](https://img.shields.io/badge/Tests-2138%20passed-green)]()
+[![Version: 6.0](https://img.shields.io/badge/Version-6.0.0-orange)]()
 [![Dashboard](https://img.shields.io/badge/Dashboard-localhost%3A3618-7c5cbf)]()
 
 > A formal model of cognitive dynamics where every parameter derives
@@ -472,6 +472,23 @@ of Expression in the Reactor's observation processing.
 
 ---
 
+## v6.0 — Reconstruction and LLM modernization
+
+v6.0 rebuilds and extends the LLM substrate, dream simulation, and
+endogenous autonomy. All four providers (Anthropic, OpenAI, DeepSeek,
+Local) have been rewritten to capture chain-of-thought from reasoning
+models (R1, o1, Claude thinking) via a new `LLMResponse.reasoning` field.
+Dream simulation now has 8 dedicated scenario handlers instead of 4.
+The endogenous initiative threshold has been lowered to 6 minutes.
+An AST-based UML generation system produces live architecture diagrams
+from the codebase.
+
+2138 tests, 0 failures. No interface broken, no module removed.
+
+> See [v6.0 release notes](docs/V6.md) for the full changelog, design rationale, and architectural decisions.
+
+---
+
 ## Quick start
 
 ### Prerequisites
@@ -644,7 +661,7 @@ luna/
 python -m pytest tests/ -q
 ```
 
-2136 tests, 0 failures. 23 skipped (Docker-dependent or pre-existing migration).
+2138 tests, 0 failures. 23 skipped (Docker-dependent).
 
 19 dedicated mathematical tests proving simplex invariants,
 dominant component preservation over 100 cycles, corruption fallback,

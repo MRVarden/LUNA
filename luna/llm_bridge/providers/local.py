@@ -1,4 +1,4 @@
-"""Local provider — Ollama, llama.cpp, vLLM, LM Studio via local server.
+"""Local provider — Ollama, llama.cpp, vLLM, LM Studio, koboldcpp via local server.
 
 Strategy:
   1. If the ``openai`` package is installed, use AsyncOpenAI (fast path).
@@ -11,6 +11,7 @@ Supported servers (all work out of the box):
   - vLLM            http://localhost:8000/v1
   - LM Studio       http://localhost:1234/v1
   - text-gen-webui  http://localhost:5000/v1
+  - koboldcpp      http://localhost:5001/v1
 """
 
 from __future__ import annotations
@@ -54,11 +55,15 @@ class LocalProvider(LLMBridge):
         model: str = "llama3",
         base_url: str = "http://localhost:11434/v1",
         api_key: str = "ollama",
+        timeout: float = 300.0,
+        keep_alive: str | None = None,
     ) -> None:
         self._model = model
         self._base_url = base_url.rstrip("/")
         self._api_key = api_key
         self._ollama_native = _is_ollama_native(base_url)
+        self._timeout = timeout
+        self._keep_alive = keep_alive  # Ollama: how long to keep model loaded ("5m", "0" to unload)
 
         # Try openai SDK first (existing installs keep working).
         try:
@@ -70,6 +75,7 @@ class LocalProvider(LLMBridge):
             self._client = openai.AsyncOpenAI(
                 api_key=api_key,
                 base_url=sdk_url,
+                timeout=timeout,
             )
             self._http = None
             log.info("Local provider: openai SDK backend, model=%s", model)
@@ -78,7 +84,7 @@ class LocalProvider(LLMBridge):
 
             self._backend = "httpx"
             self._client = None
-            self._http = httpx.AsyncClient(timeout=_DEFAULT_TIMEOUT)
+            self._http = httpx.AsyncClient(timeout=timeout)
             log.info(
                 "Local provider: httpx backend (%s), model=%s",
                 "ollama-native" if self._ollama_native else "openai-compat",
@@ -224,6 +230,8 @@ class LocalProvider(LLMBridge):
                 "num_predict": max_tokens,
             },
         }
+        if self._keep_alive is not None:
+            payload["keep_alive"] = self._keep_alive
 
         try:
             resp = await self._http.post(url, json=payload)

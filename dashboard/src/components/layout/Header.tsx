@@ -7,9 +7,10 @@ interface Props {
   connected: boolean
   phase: string
   stepCount: number
+  llmState?: 'closed' | 'open' | 'half_open'
 }
 
-export function Header({ connected, phase, stepCount }: Props) {
+export function Header({ connected, phase, stepCount, llmState = 'closed' }: Props) {
   return (
     <header className="flex items-center justify-between px-6 py-3 border-b border-luna-border/50">
       {/* Logo */}
@@ -29,7 +30,7 @@ export function Header({ connected, phase, stepCount }: Props) {
             <span className="text-luna-text-muted font-normal ml-2">Consciousness Engine</span>
           </h1>
           <div className="text-[9px] text-luna-text-muted tracking-widest uppercase">
-            v5.3.0 — Dashboard
+            v6.0.0 — Dashboard
           </div>
         </div>
       </div>
@@ -40,6 +41,23 @@ export function Header({ connected, phase, stepCount }: Props) {
           <Activity className="w-3.5 h-3.5 text-luna-text-dim" />
           <span className="text-luna-text-dim">Step</span>
           <span className="font-mono text-luna-text">{stepCount}</span>
+        </div>
+
+        <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[9px] font-mono ${
+          llmState === 'closed'
+            ? 'bg-emerald-500/10 text-emerald-400'
+            : llmState === 'half_open'
+              ? 'bg-amber-500/10 text-amber-400'
+              : 'bg-red-500/10 text-red-400'
+        }`}>
+          <div className={`w-1.5 h-1.5 rounded-full ${
+            llmState === 'closed'
+              ? 'bg-emerald-400'
+              : llmState === 'half_open'
+                ? 'bg-amber-400'
+                : 'bg-red-400'
+          }`} />
+          LLM {llmState === 'closed' ? 'OK' : llmState === 'half_open' ? 'PROBE' : 'DOWN'}
         </div>
 
         <div className={`phase-badge phase-${phase}`}>

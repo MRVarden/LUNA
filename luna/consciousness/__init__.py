@@ -48,6 +48,8 @@ from luna.consciousness.initiative import (
     InitiativeDecision,
     InitiativeEngine,
 )
+from luna.consciousness.endogenous import EndogenousSource, Impulse, ImpulseSource
+from luna.consciousness.synthesis import Synthesis, SynthesisReport
 from luna.consciousness.watcher import (
     EnvironmentSnapshot,
     EnvironmentWatcher,
@@ -99,6 +101,13 @@ __all__ = [
     "InitiativeAction",
     "InitiativeDecision",
     "InitiativeEngine",
+    # Endogenous
+    "EndogenousSource",
+    "Impulse",
+    "ImpulseSource",
+    # Synthesis
+    "Synthesis",
+    "SynthesisReport",
     # Watcher
     "EnvironmentSnapshot",
     "EnvironmentWatcher",

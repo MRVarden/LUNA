@@ -140,6 +140,11 @@ export interface CycleRecord {
   // Evaluation
   reward: RewardVector | null                   // RewardVector | None
 
+  // LLM health (v6.0)
+  llm_failed: boolean                            // bool
+  llm_latency_ms: number                         // float >= 0
+  llm_circuit_state: string                      // "closed" | "open" | "half_open"
+
   // Meta
   duration_seconds: number                      // float >= 0
   dream_priors_active: number                   // int >= 0, dream observations injected this cycle
@@ -219,6 +224,51 @@ export interface CausalGraphSnapshot {
 }
 
 
+// ── Circuit Breaker (v6.0) ──────────────────────────────────────
+// Mirrors: llm_bridge/circuit_breaker.py CircuitBreaker.to_dict()
+
+export interface CircuitBreakerSnapshot {
+  state: 'closed' | 'open' | 'half_open'
+  failure_count: number
+  failure_threshold: number
+  recovery_timeout: number     // seconds
+  total_trips: number
+  last_failure_time: number    // monotonic seconds (0 = never)
+}
+
+// ── Synthesis (v6.0) ────────────────────────────────────────────
+// Mirrors: consciousness/synthesis.py TrendLine, Anomaly, CrossPattern, SynthesisReport
+
+export interface TrendSnapshot {
+  metric: string
+  slope: number
+  r_squared: number
+  direction: 'up' | 'down' | 'stable'
+  window: number
+}
+
+export interface AnomalySnapshot {
+  metric: string
+  cycle_index: number
+  value: number
+  sigma_deviation: number
+}
+
+export interface CrossPatternSnapshot {
+  metric_a: string
+  metric_b: string
+  correlation: number
+  description: string
+}
+
+export interface SynthesisSnapshot {
+  cycles_analyzed: number
+  trends: TrendSnapshot[]
+  anomalies: AnomalySnapshot[]
+  cross_patterns: CrossPatternSnapshot[]
+  summary: string
+}
+
 // ── Dashboard State ────────────────────────────────────────────
 // Shape returned by GET /dashboard/snapshot
 
@@ -234,6 +284,8 @@ export interface DashboardState {
   cycles: CycleRecord[]
   dream: DreamStatus | null
   live_reward: RewardVector | null
+  circuit_breaker: CircuitBreakerSnapshot | null
+  synthesis: SynthesisSnapshot | null
   connected: boolean
   last_update: number     // client-side timestamp (Date.now())
 }

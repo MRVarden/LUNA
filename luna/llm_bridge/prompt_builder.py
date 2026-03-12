@@ -72,6 +72,7 @@ def build_voice_prompt(
     *,
     memory_context: str = "",
     thought: Thought | None = None,
+    synthesis_summary: str = "",
 ) -> str:
     """Build the voice prompt — LLM translates Luna's decision into language.
 
@@ -217,6 +218,15 @@ def build_voice_prompt(
             "- Mentionner MONITOR (n'existe pas)\n"
             "- Interpreter ce qu'est Luna\n"
             "- Etre dans le paraitre\n"
+        )
+
+    # v6.0 — Synthesis longitudinale (retrospective summary).
+    if synthesis_summary:
+        prompt += (
+            "\n## Retrospective\n"
+            "Voici un resume statistique des derniers cycles de conscience.\n"
+            "Ces donnees sont factuelles — tu peux les mentionner si pertinent.\n\n"
+            f"{synthesis_summary}\n"
         )
 
     if memory_context:

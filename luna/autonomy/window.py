@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import shlex
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -406,7 +407,7 @@ class AutonomyWindow:
         try:
             proc = await asyncio.wait_for(
                 asyncio.create_subprocess_exec(
-                    *self._test_command.split(),
+                    *shlex.split(self._test_command),
                     cwd=str(self._project_root),
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,

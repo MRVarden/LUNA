@@ -96,6 +96,8 @@ export function useLunaState(): DashboardState & { refreshing: boolean } {
             cycles: (snapshot as any).cycles?.length ? (snapshot as any).cycles : prev.cycles,
             dream: snapshot.dream ?? prev.dream,
             live_reward: liveReward,
+            circuit_breaker: (snapshot as any).circuit_breaker ?? prev.circuit_breaker,
+            synthesis: (snapshot as any).synthesis ?? prev.synthesis,
             connected: true,
             last_update: Date.now(),
           }

@@ -64,6 +64,7 @@ class LLMSection:
     base_url: str | None = None   # Override for DeepSeek or local.
     max_tokens: int = 4096
     temperature: float = 0.7
+    timeout: float = 120.0        # Request timeout in seconds.
 
 
 @dataclass(frozen=True, slots=True)
@@ -276,6 +277,7 @@ class LunaConfig:
             base_url=llm_raw.get("base_url"),
             max_tokens=llm_raw.get("max_tokens", 4096),
             temperature=llm_raw.get("temperature", 0.7),
+            timeout=llm_raw.get("timeout", 120.0),
         )
         if llm.api_key is not None:
             log.warning(

@@ -8,12 +8,17 @@ from luna.llm_bridge.bridge import LLMBridge, LLMBridgeError, LLMResponse
 
 
 class AnthropicProvider(LLMBridge):
-    """Claude API provider using ``anthropic.AsyncAnthropic``."""
+    """Claude API provider using ``anthropic.AsyncAnthropic``.
+
+    Supports extended thinking (Claude 4+): when the model returns
+    ``thinking`` blocks, their text is captured in ``LLMResponse.reasoning``.
+    """
 
     def __init__(
         self,
         model: str = "claude-sonnet-4-20250514",
         api_key: str | None = None,
+        timeout: float = 120.0,
     ) -> None:
         self._model = model
         self._api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
@@ -22,16 +27,18 @@ class AnthropicProvider(LLMBridge):
                 "No Anthropic API key: set api_key or ANTHROPIC_API_KEY env var.",
                 provider="anthropic",
             )
-        # Lazy import — graceful if anthropic not installed.
         try:
-            import anthropic  # noqa: F811
+            import anthropic
         except ImportError as exc:
             raise LLMBridgeError(
                 "anthropic package not installed: pip install anthropic",
                 provider="anthropic",
                 original=exc,
             ) from exc
-        self._client = anthropic.AsyncAnthropic(api_key=self._api_key)
+        self._client = anthropic.AsyncAnthropic(
+            api_key=self._api_key,
+            timeout=timeout,
+        )
 
     async def complete(
         self,
@@ -58,9 +65,23 @@ class AnthropicProvider(LLMBridge):
                 original=exc,
             ) from exc
 
+        # Parse response blocks — text and optional thinking.
+        text_parts: list[str] = []
+        thinking_parts: list[str] = []
+        for block in response.content:
+            if block.type == "text":
+                text_parts.append(block.text)
+            elif block.type == "thinking":
+                thinking_parts.append(block.text)
+
         return LLMResponse(
-            content=response.content[0].text,
+            content="".join(text_parts),
             model=response.model,
             input_tokens=response.usage.input_tokens,
             output_tokens=response.usage.output_tokens,
+            reasoning="".join(thinking_parts),
         )
+
+    async def close(self) -> None:
+        """Close the underlying httpx client."""
+        await self._client.close()

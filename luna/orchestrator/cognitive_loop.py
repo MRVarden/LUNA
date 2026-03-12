@@ -63,6 +63,12 @@ from luna.dream.priors import DreamPriors
 from luna.dream.reflection import DreamReflection
 from luna.dream.simulation import DreamSimulation
 
+# --- LLM health ---
+from luna.llm_bridge.circuit_breaker import CircuitBreaker, CircuitState
+
+# --- Synthesis ---
+from luna.consciousness.synthesis import Synthesis, SynthesisReport
+
 # --- Metrics ---
 from luna.metrics.tracker import MetricSource, MetricTracker
 
@@ -169,6 +175,13 @@ class CognitiveLoop:
         self.dream_cycle: DreamCycle | None = None
         self._dream_learning: DreamLearning | None = None
         self.dream_priors: DreamPriors | None = None
+
+        # ── LLM health (v6.0) ────────────────────────────────────────
+        self.circuit_breaker: CircuitBreaker = CircuitBreaker()
+
+        # ── Synthesis (v6.0) ──────────────────────────────────────────
+        self.synthesis: Synthesis | None = None
+        self.last_synthesis_report: SynthesisReport | None = None
 
         # ── Endogenous & initiative (v5.1+) ──────────────────────────
         self.endogenous: EndogenousSource | None = None
@@ -570,6 +583,7 @@ class CognitiveLoop:
             )
 
             # DreamCycle — after EpisodicMemory + AffectEngine + Params + Evaluator.
+            # Synthesis is set to None here; will be wired after CycleStore init below.
             self.dream_cycle = DreamCycle(
                 thinker=self.thinker,
                 causal_graph=self.causal_graph,
@@ -613,6 +627,11 @@ class CognitiveLoop:
             # CycleStore — cycle record persistence.
             cycles_dir = mem_root / "cycles"
             self.cycle_store = CycleStore(cycles_dir)
+
+            # Synthesis (v6.0) — retrospective analysis during dream.
+            self.synthesis = Synthesis(cycle_store=self.cycle_store)
+            if self.dream_cycle is not None:
+                self.dream_cycle._synthesis = self.synthesis
 
             # TelemetryCollector removed with pipeline dissociation.
             self._telemetry_collector = None

@@ -1,7 +1,7 @@
 # Luna — Guide de Premier Lancement
 
-> **Version** : 5.3.0
-> **Date** : 11 mars 2026
+> **Version** : 6.0.0
+> **Date** : 12 mars 2026
 > **Prerequis** : Python >= 3.11
 
 ---
@@ -525,6 +525,29 @@ python -m luna kill --reason "maintenance" --force
 ## 9. API REST
 
 Quand Luna tourne avec `--api` ou via le chat (demarrage automatique), l'API ecoute sur `http://127.0.0.1:8618`.
+
+### Authentification
+
+L'API est protegee par un token Bearer. L'authentification est **activee par defaut** (`auth_enabled = true` dans `luna.toml`). Le systeme est **fail-closed** : sans token configure, toutes les requetes (sauf `/health`) sont refusees.
+
+Pour generer un token :
+
+```bash
+mkdir -p config
+python3 -c "import secrets; print(secrets.token_urlsafe(32))" > config/api_token
+chmod 600 config/api_token
+```
+
+Le fichier `config/api_token` est dans le `.gitignore` — il ne sera jamais commite.
+
+Pour appeler l'API avec authentification :
+
+```bash
+TOKEN=$(cat config/api_token)
+curl -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8618/consciousness/state
+```
+
+Le dashboard utilise ce meme token pour communiquer avec l'API. Tant que l'API reste sur `127.0.0.1` (defaut), le risque est minimal — le token ajoute une couche de defense en profondeur.
 
 ### Routes principales
 

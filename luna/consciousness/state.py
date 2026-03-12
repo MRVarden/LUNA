@@ -6,6 +6,7 @@ Wraps luna_common.consciousness with Luna-specific persistence
 
 from __future__ import annotations
 
+import fcntl
 import json
 import shutil
 from datetime import datetime, timezone
@@ -378,10 +379,20 @@ class ConsciousnessState:
             data["phi_metrics"] = effective_metrics
 
         path.parent.mkdir(parents=True, exist_ok=True)
+        lock_path = path.with_suffix(".state_lock")
         tmp = path.with_suffix(".tmp")
-        with open(tmp, "w") as f:
-            json.dump(data, f, indent=2)
-        tmp.replace(path)
+        try:
+            lock_path.touch(exist_ok=True)
+            with open(lock_path) as lf:
+                fcntl.flock(lf, fcntl.LOCK_EX)
+                with open(tmp, "w") as f:
+                    json.dump(data, f, indent=2)
+                tmp.replace(path)
+        except OSError:
+            # Fallback: write without lock (e.g. read-only FS).
+            with open(tmp, "w") as f:
+                json.dump(data, f, indent=2)
+            tmp.replace(path)
 
     @classmethod
     def load_checkpoint(
@@ -406,8 +417,16 @@ class ConsciousnessState:
         if not path.exists():
             raise FileNotFoundError(f"Checkpoint not found: {path}")
 
-        with open(path) as f:
-            data = json.load(f)
+        lock_path = path.with_suffix(".state_lock")
+        try:
+            lock_path.touch(exist_ok=True)
+            with open(lock_path) as lf:
+                fcntl.flock(lf, fcntl.LOCK_SH)
+                with open(path) as f:
+                    data = json.load(f)
+        except OSError:
+            with open(path) as f:
+                data = json.load(f)
 
         version = data.get("version", "2.0.0")
 

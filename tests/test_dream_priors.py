@@ -579,14 +579,14 @@ class TestDreamResultPsi0:
             for i in range(5)
         ]
 
-        # Mock update_psi0_adaptive to raise (v5.3: dream uses adaptive path).
-        with patch.object(state, "update_psi0_adaptive", side_effect=ValueError("forced error")):
+        # Mock update_psi0 to raise (v6.0: dream uses direct psi0 path).
+        with patch.object(state, "update_psi0", side_effect=ValueError("forced error")):
             result = dc.run(recent_cycles=records)
 
         # Even though there was a delta, the exception means it was not applied.
         if any(abs(d) > 1e-8 for d in result.psi0_delta):
             assert result.psi0_applied is False, (
-                "psi0_applied should be False when update_psi0_adaptive raises"
+                "psi0_applied should be False when update_psi0 raises"
             )
 
 

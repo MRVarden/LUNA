@@ -241,6 +241,56 @@ async def get_snapshot(orch: object = Depends(get_orchestrator)) -> dict:
             "pending_impulses": pending,
         }
 
+    # ── Circuit Breaker (v6.0) ──────────────────────────────────
+    cb = getattr(orch, "circuit_breaker", None)
+    if cb is not None:
+        result["circuit_breaker"] = cb.to_dict()
+
+    # ── Synthesis (v6.0) ─────────────────────────────────────────
+    synth = getattr(orch, "synthesis", None)
+    last_report = getattr(orch, "last_synthesis_report", None)
+    if synth is not None:
+        try:
+            # Use cached report if available, otherwise run on-demand.
+            if last_report is not None:
+                report = last_report
+            else:
+                report = synth.run(window=30)
+            result["synthesis"] = {
+                "cycles_analyzed": report.cycles_analyzed,
+                "trends": [
+                    {
+                        "metric": t.metric,
+                        "slope": t.slope,
+                        "r_squared": t.r_squared,
+                        "direction": t.direction,
+                        "window": t.window,
+                    }
+                    for t in report.trends
+                ],
+                "anomalies": [
+                    {
+                        "metric": a.metric,
+                        "cycle_index": a.cycle_index,
+                        "value": a.value,
+                        "sigma_deviation": a.sigma_deviation,
+                    }
+                    for a in report.anomalies[:10]
+                ],
+                "cross_patterns": [
+                    {
+                        "metric_a": cp.metric_a,
+                        "metric_b": cp.metric_b,
+                        "correlation": cp.correlation,
+                        "description": cp.description,
+                    }
+                    for cp in report.cross_patterns
+                ],
+                "summary": report.summary,
+            }
+        except Exception as exc:
+            log.debug("Synthesis snapshot failed: %s", exc)
+
     # ── Recent Cycles ────────────────────────────────────────────
     cycle_store = getattr(orch, "cycle_store", None)
     if cycle_store is not None:

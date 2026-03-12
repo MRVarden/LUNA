@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 import { readFileSync, writeFileSync } from 'fs'
 
-const LICENSE_BANNER = `/*! Luna Dashboard v5.3 — CC-BY-NC-4.0 — (c) Varden | https://creativecommons.org/licenses/by-nc/4.0/ */\n`
+const LICENSE_BANNER = `/*! Luna Dashboard v6.0 — CC-BY-NC-4.0 — (c) Varden | https://creativecommons.org/licenses/by-nc/4.0/ */\n`
 
 function licenseBannerPlugin() {
   return {

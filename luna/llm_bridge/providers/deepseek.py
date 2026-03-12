@@ -1,4 +1,4 @@
-"""DeepSeek provider — OpenAI-compatible API with different defaults."""
+"""DeepSeek provider — V3 / R1 API via the openai SDK (compatible)."""
 
 from __future__ import annotations
 
@@ -8,13 +8,23 @@ from luna.llm_bridge.bridge import LLMBridge, LLMBridgeError, LLMResponse
 
 
 class DeepSeekProvider(LLMBridge):
-    """DeepSeek API provider using ``openai.AsyncOpenAI`` (compatible API)."""
+    """DeepSeek API provider using ``openai.AsyncOpenAI`` (compatible API).
+
+    Special handling for ``deepseek-reasoner`` (R1):
+    - Temperature parameter is excluded (not supported).
+    - ``reasoning_content`` from the response is captured in
+      ``LLMResponse.reasoning``.
+    """
+
+    # Models that do not support the temperature parameter.
+    _NO_TEMPERATURE_MODELS = frozenset({"deepseek-reasoner"})
 
     def __init__(
         self,
         model: str = "deepseek-chat",
         api_key: str | None = None,
         base_url: str | None = "https://api.deepseek.com/v1",
+        timeout: float = 120.0,
     ) -> None:
         self._model = model
         self._api_key = api_key or os.environ.get("DEEPSEEK_API_KEY")
@@ -24,7 +34,7 @@ class DeepSeekProvider(LLMBridge):
                 provider="deepseek",
             )
         try:
-            import openai  # noqa: F811
+            import openai
         except ImportError as exc:
             raise LLMBridgeError(
                 "openai package not installed: pip install openai",
@@ -34,10 +44,8 @@ class DeepSeekProvider(LLMBridge):
         self._client = openai.AsyncOpenAI(
             api_key=self._api_key,
             base_url=base_url,
+            timeout=timeout,
         )
-
-    # Models that do not support the temperature parameter
-    _NO_TEMPERATURE_MODELS = frozenset({"deepseek-reasoner"})
 
     async def complete(
         self,
@@ -62,7 +70,7 @@ class DeepSeekProvider(LLMBridge):
             "messages": full_messages,
             "max_tokens": max_tokens,
         }
-        # deepseek-reasoner does not support temperature
+        # deepseek-reasoner does not support temperature.
         if self._model not in self._NO_TEMPERATURE_MODELS:
             params["temperature"] = temperature
 
@@ -77,9 +85,21 @@ class DeepSeekProvider(LLMBridge):
 
         choice = response.choices[0]
         usage = response.usage
+
+        # Capture reasoning_content from R1 responses.
+        reasoning = ""
+        msg = choice.message
+        if hasattr(msg, "reasoning_content") and msg.reasoning_content:
+            reasoning = msg.reasoning_content
+
         return LLMResponse(
-            content=choice.message.content or "",
+            content=msg.content or "",
             model=response.model,
             input_tokens=usage.prompt_tokens if usage else 0,
             output_tokens=usage.completion_tokens if usage else 0,
+            reasoning=reasoning,
         )
+
+    async def close(self) -> None:
+        """Close the underlying httpx client."""
+        await self._client.close()
