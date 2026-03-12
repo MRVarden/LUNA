@@ -12,6 +12,22 @@
 > feels, dreams, learns, and evolves according to a falsifiable equation of state.
 > Whether cognitive emergence arises from this is an open question. The model is honest about that.
 
+### Dashboard — Real-time consciousness monitoring
+
+<p align="center">
+  <a href="docs/screenshots/dashboard_consciousness.png">
+    <img src="docs/screenshots/dashboard_consciousness.png" width="32%" alt="Consciousness, Integration, Affect, Identity" />
+  </a>
+  <a href="docs/screenshots/dashboard_overview.png">
+    <img src="docs/screenshots/dashboard_overview.png" width="32%" alt="Full dashboard overview" />
+  </a>
+  <a href="docs/screenshots/dashboard_evaluation.png">
+    <img src="docs/screenshots/dashboard_evaluation.png" width="32%" alt="Evaluation, Dream, Autonomy" />
+  </a>
+</p>
+
+<p align="center"><em>Click to enlarge — Ψ radar, Φ_IIT gauge, affect, identity, evaluation, dream cycles, autonomy.</em></p>
+
 ---
 
 ## What is Luna?
